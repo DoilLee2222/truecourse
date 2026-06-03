@@ -181,6 +181,15 @@ TrueCourse builds a machine-readable spec from your docs and verifies the code a
 
 > **Prerequisite:** the contract extractor and conflict resolver shell out to the Claude Code CLI (`claude -p`). Install Claude Code and sign in once before running `spec scan` or `contracts generate`.
 
+### LLM transport (`--llm`)
+
+The LLM-powered stages (`spec scan`, `contracts generate`, and the conflict resolver) talk to the model through a pluggable **transport**, so the *how do we reach an LLM* decision is separate from the *what do we prompt* logic. Today there are two backends, selected per command with `--llm <mode>`:
+
+- **`cli`** (default) — each prompt is sent by spawning a `claude -p` subprocess. This is the current behavior and needs the `claude` binary on PATH (signed in). No API key is used.
+- **`agent`** *(planned — not yet shipped; the `--llm` flag itself is still to be added)* — instead of spawning `claude`, the tool writes each prompt (system + user + the JSON schema the answer must match) into an I/O folder and waits for an answer file; an **orchestrating agent that is already an LLM** (e.g. a Claude Code [routine](https://code.claude.com/docs/en/routines)) reads each prompt and writes the response back. The tool validates the responses and continues. No `claude` subprocess, no API key — useful where spawning the CLI isn't possible. This is what would let the [drift-FP automation](docs/drift-fp-automation/README.md) generate contracts inside a cloud routine. It slots in behind the **runner-injection seam that already exists** — the per-call `BlockRunner` (`packages/spec-consolidator`) and `SliceRunner` (`packages/contract-extractor`) function overrides that the tests use to inject stubs — by adding a second runner that does file I/O instead of `spawn('claude', …)` (the contract-extractor repair pass needs the same treatment).
+
+Both backends would send the identical prompts and parse the identical schema-validated JSON — only the delivery differs.
+
 ## Quick Start
 
 ```bash
